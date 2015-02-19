@@ -2,7 +2,7 @@
 
 (require racket/match)
 (require "config.rkt")
-
+(require "utils.rkt")
 
 ;;; Type ::= *
 ;;;        | Type -> Type
@@ -35,10 +35,10 @@
      (foldr (curryr make-lambda (compile-pstlc-type type))
             (compile-pstlc-expr exprs)
             vars)]
-    [(list func exprs ...+)
-     (foldl make-appl
-            func
-            (map compile-pstlc-expr exprs))]
+    [(list func exprs ...)
+     (fold-left make-appl
+                (compile-pstlc-expr func)
+                (map compile-pstlc-expr exprs))]
     [(list expr)
      (compile-pstlc-expr expr)]
     ))
@@ -57,6 +57,7 @@
   (and (pair? expr)
        (eq? (car expr) 'appl)))
 
+(define (var-name expr)  (and (term-var? expr) (cdr expr)))
 (define (lambda-var  expr) (and (lambda? expr) (cadr expr)))
 (define (lambda-type expr) (and (lambda? expr) (caddr expr)))
 (define (lambda-expr expr) (and (lambda? expr) (cadddr expr)))
@@ -85,7 +86,7 @@
   (define (show-lambda vars type expr)
     (define lambda-expr-str
       (if (term-var? expr)
-          (symbol->string expr)
+          (symbol->string (var-name expr))
           (paren-quote (show-expr expr))))
     (define str-vars (map symbol->string vars))
 
@@ -96,17 +97,16 @@
                    " . "
                    lambda-expr-str
                    ))
-  (define (show-appl func args)
+  (define (show-appl func arg)
     (define appl-func-str
       (if (lambda? func)
           (paren-quote (show-expr func))
           (show-expr func)))
-    (define arg-strs
-      (map (λ (a) (if (term-var? a)
-                      (show-expr a)
-                      (paren-quote (show-expr a))))
-           args))
-    (string-join (cons appl-func-str arg-strs) " "))
+    (define arg-str
+      (if (term-var? arg)
+          (show-expr arg)
+          (paren-quote (show-expr arg))))
+    (string-join (list appl-func-str arg-str) " "))
 
   (define (acc-lambda-vars var type expr)
     (if (and (lambda? expr)
@@ -164,26 +164,27 @@
       ['pstlc deduce-pstlc-type]))
 
   (define (add-const-type env type)
-    (match env
-      [(neko-env tb ta ct)
-       (neko-env tb ta (cons type ct))]))
+    (define new-const-types
+      (cons type (neko-env-const-types env)))
+    (struct-copy neko-env env
+                 [const-types new-const-types]))
 
   (define (add-type-binding env type-binding)
     (define new-bnd
       (match type-binding
         [(list name ':: type ...)
          (cons name (compile-type type))]))
-    (match env
-      [(neko-env tb ta ct)
-       (neko-env (cons new-bnd tb) ta ct)]))
+    (define new-type-bindings
+      (cons new-bnd (neko-env-type-bindings env)))
+    (struct-copy neko-env env
+                 [type-bindings new-type-bindings]))
 
   (define (add-type-alias env new-name orig-name)
     (define alias (cons new-name orig-name))
-    (match env
-      [(neko-env tb ta ct)
-       (neko-env tb
-                 (cons alias ta)
-                 ct)]))
+    (define new-type-aliases
+      (cons alias (neko-env-type-aliases env)))
+    (struct-copy neko-env env
+                 [type-aliases new-type-aliases]))
 
   (define (query-type env expr)
     (define compiled-expr (compile-expr expr))
@@ -216,4 +217,10 @@
   )
 
 (display (show-type (compile-pstlc-type '(A -> B))))
+(newline)
+
+; (display (show-expr (compile-pstlc-expr '(λ A C :: B : E F))))
+(display (show-expr (compile-pstlc-expr
+                     '(λ x :: T : (λ y :: T : X) E (F G) H))))
+; (show-expr (compile-pstlc-expr '(E F G H)))
 (newline)
