@@ -14,8 +14,8 @@
               x))
     (def succ (l n : Nat
                  L @a :
-                 l z0 :: @a
-                 l zf :: @a -> @a
+                 l z0 :: @a :
+                 l zf :: @a -> @a :
                  zf (n z0 zf)
                  ))
 
@@ -30,6 +30,7 @@
    (system pstlc) ;; pure simple typed lambda calculi
 
    (ctype T1 T2 T3)
+   (type T4 T3)
 
    (Gamma [f1 :: T1 -> T2]
           [f2 :: T2 -> T3]
