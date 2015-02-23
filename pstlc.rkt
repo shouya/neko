@@ -56,10 +56,13 @@
 ;;;        | ( Term )
 
 (define (compile-term term)
+  (define (my-make-lambda var expr type)
+    (make-lambda var type expr))
+
   (match term
     [(? symbol?) (make-var term)]
-    [(list 'λ vars ... ':: type ': terms ...)
-     (foldr (curryr make-lambda (compile-term type))
+    [(list 'λ vars ... ':: type ... ': terms ...)
+     (foldr (curryr my-make-lambda (compile-term type))
             (compile-term terms)
             vars)]
     [(list func terms ...)
@@ -174,14 +177,21 @@
       (reduce-full (reduce-step term env) env)))
 
 
-(define (deduce-type term env)
-  (define (var-case name) (make-unit-type))
-  (define (lamb-case _ type expr)
+(define (empty-type-bnd) '())
+(define (deduce-type term env [bnd (empty-type-bnd)])
+  (define (var-case name)
+    (let ([var-bnd (assoc name bnd)]
+          [var-str (symbol->string name)])
+      (if (false? var-bnd)
+          (error (format "variable ~a not bound" var-str))
+          (cdr var-bnd))))
+  (define (lamb-case var type expr)
+    (define new-bnd (cons (cons var type) bnd))
     (make-func-type type
-                    (deduce-type expr env)))
+                    (deduce-type expr env new-bnd)))
   (define (appl-case func cant)
-    (build-appl-type (deduce-type func env)
-                     (deduce-type cant env)))
+    (build-appl-type (deduce-type func env bnd)
+                     (deduce-type cant env bnd)))
   (term-case term var-case lamb-case appl-case))
 
 (define (build-appl-type t1 t2)
