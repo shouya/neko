@@ -41,11 +41,10 @@
 
 (define (compile-type type)
   (match type
-    ['*       (cons '* '())]
+    ['*              (make-unit-type)]
     [(list t1 -> t2 ...)
-     (cons '->
-           (cons (compile-type t1)
-                 (compile-type t2)))]
+     (make-func-type (compile-type t1)
+                     (compile-type t2))]
     [(list t) (compile-type t)]))
 
 
@@ -115,9 +114,8 @@
          [term-type  (deduce-type term env)])
     (if (type-compatible? term-type arg-type)
         (subst lamb-body lamb-var term)
-        (error (format "type error on beta reduction: expect ~a, get ~a"
-                       (show-type arg-type)
-                       (show-type term-type))))))
+        (report-type-incompatible term-type arg-type
+                                  "type error on beta reduction"))))
 (define (reduce-beta-able? term env)
   (if (not (application? term)) #f
       (let ([func (appl-func term)])
@@ -177,10 +175,25 @@
 
 
 (define (deduce-type term env)
-  (undefined)
-  )
+  (define (var-case name) (make-unit-type))
+  (define (lamb-case _ type expr)
+    (make-func-type type
+                    (deduce-type expr env)))
+  (define (appl-case func cant)
+    (build-appl-type (deduce-type func env)
+                     (deduce-type cant env)))
+  (term-case term var-case lamb-case appl-case))
 
-(define (type-compatible? t1 t2)
+(define (build-appl-type t1 t2)
+  (if (not (func-type? t1))
+      (error (format "error: ~a is not a function" t1))
+      (let ([dom-type (func-type-dom   t1)]
+            [cod-type (func-type-codom t1)])
+        (if (not (type-compatible? t2 dom-type))
+            (report-type-incompatible t2 dom-type)
+            cod-type))))
+
+(define (type-compatible? get expect)
   (undefined))
 
 (define (print-type env term)

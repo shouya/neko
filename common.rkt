@@ -9,7 +9,8 @@
 (define (accessor pred? locate)
   (λ (x) (and (pred? x) (locate x))))
 
-(define func-type?   (predicate '->))
+
+;; -- terms --
 (define term-var?    (predicate 'var))
 (define lambda?      (predicate 'λ))
 (define application? (predicate 'appl))
@@ -24,6 +25,17 @@
 (define (make-var name)             (cons 'var name))
 (define (make-lambda var type term) (list 'λ var type term))
 (define (make-appl func cant)       (list 'appl func cant))
+
+;; -- types --
+(define func-type?   (predicate '->))
+(define unit-type?   (predicate '*))
+
+(define (func-type-dom   type) (accessor func-type? cadr))
+(define (func-type-codom type) (accessor func-type? cddr))
+
+(define (make-unit-type) (cons '* '()))
+(define (make-func-type t1 t2) (cons '-> (cons t1 t2)))
+
 
 
 (define (show-type type)
@@ -94,3 +106,8 @@
 (define (handle-common-command command env)
   (match command
     [(list 'system _) env]))
+
+(define (report-type-incompatible get expect [msg "incompatible type"])
+  (error (format "~a: expect ~a, get ~a" msg
+                 (show-type expect)
+                 (show-type get))))
