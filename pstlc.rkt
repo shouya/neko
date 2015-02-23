@@ -123,6 +123,22 @@
                        (show-type term-type))))
     ))
 
+(define (reduce-li1 func cant env)
+  (make-appl (reduce func env) cant))
+(define (reduce-li2 func cant env)
+  (make-appl func (reduce cant env)))
+(define (reduce-li func cant env)
+  (make-appl (reduce func env)
+             (reduce cant env)))
+
+(define (reduce-li-alt func cant env)
+  (let* ([reduced (reduce-li1 func cant env)]
+         [func2   (appl-func reduced)]
+         [cant2   (appl-cant reduced)])
+    (reduce-li2 func2 cant2 env)))
+
+(define (reduce-ref term env) term)
+(define (reduce-trs term env) (reduce (reduce term env) env))
 
 (define (deduce-type term env)
   (undefined)
