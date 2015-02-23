@@ -171,6 +171,9 @@
       (error (format "term ~a is not reducible" (show-expr term)))
       (reduction-proc term env)))
 
+(define (reduce-full term env)   ;; probably undetermined
+  (if (not (reducible? term env)) term
+      (reduce-full (reduce-step term env) env)))
 
 
 (define (deduce-type term env)
