@@ -61,13 +61,6 @@
     (struct-copy neko-env env
                  [type-aliases new-type-aliases]))
 
-  (define (query-type env expr)
-    (define compiled-expr (compile-expr expr))
-    (define deduced-type  (deduce-type env compiled-expr))
-    (printf "~a :: ~a"
-            (show-expr compiled-expr)
-            (show-type deduced-type))
-    env)
 
 
   (let do-commands ([lines program]
