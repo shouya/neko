@@ -42,7 +42,7 @@
 (define (compile-type type)
   (match type
     ['*              (make-unit-type)]
-    [(list t1 -> t2 ...)
+    [(list t1 '-> t2 ...)
      (make-func-type (compile-type t1)
                      (compile-type t2))]
     [(list t) (compile-type t)]))
@@ -61,8 +61,8 @@
 
   (match term
     [(? symbol?) (make-var term)]
-    [(list 'λ vars ... ':: type ... ': terms ...)
-     (foldr (curryr my-make-lambda (compile-term type))
+    [(list 'λ (list vars ... ':: type ...) terms ...)
+     (foldr (curryr my-make-lambda (compile-type type))
             (compile-term terms)
             vars)]
     [(list func terms ...)

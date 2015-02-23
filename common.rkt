@@ -50,6 +50,7 @@
   (match type
     [(cons 'base-type t)        (symbol->string t)]
     [(cons '-> (cons t1 t2))    (show-func-type t1 t2)]
+    [(cons '* _)                "*"]
     ))
 
 
