@@ -71,9 +71,6 @@
      (compile-term term)]
     ))
 
-(define (reduce term env)
-  (if (not (quote (redex? term)))
-      1 2))
 
 (define (normal-form? term)
   (match term
@@ -120,16 +117,25 @@
         (subst lamb-body lamb-var term)
         (error (format "type error on beta reduction: expect ~a, get ~a"
                        (show-type arg-type)
-                       (show-type term-type))))
-    ))
+                       (show-type term-type))))))
+(define (reduce-beta-able? term env)
+  (if (not (application? term)) #f
+      (let ([func (appl-func term)])
+        (if (lambda? func) #t   #f))))
 
 (define (reduce-li1 func cant env)
-  (make-appl (reduce func env) cant))
+  (make-appl (reduce-step func env) cant))
 (define (reduce-li2 func cant env)
-  (make-appl func (reduce cant env)))
+  (make-appl func (reduce-step cant env)))
 (define (reduce-li func cant env)
-  (make-appl (reduce func env)
-             (reduce cant env)))
+  (make-appl (reduce-step func env)
+             (reduce-step cant env)))
+(define (reduce-li1-able? term env)
+  (if (not (application? term)) #f
+      (reducible? (appl-func term))))
+(define (reduce-li2-able? term env)
+  (if (not (application? term)) #f
+      (reducible? (appl-cant term))))
 
 (define (reduce-li-alt func cant env)
   (let* ([reduced (reduce-li1 func cant env)]
@@ -137,8 +143,35 @@
          [cant2   (appl-cant reduced)])
     (reduce-li2 func2 cant2 env)))
 
+(define (reduce-trs term env) (reduce-step (reduce-step term env) env))
+(define (reduce-trs-able? term env)
+  (if (not (reducible? term env)) #f
+      (let ([reduced (reduce-step term env)])
+        (reducible? term env))))
+
 (define (reduce-ref term env) term)
-(define (reduce-trs term env) (reduce (reduce term env) env))
+(define (reduce-ref-able? term env) #t)
+
+(define (reducible? term env)
+  (ormap (λ (f) (f term env))
+         (list reduce-beta-able?
+               reduce-li1-able?
+               reduce-li2-able?)))
+
+
+(define (reduce-step term env)
+  ;; notice: the order of reduction does not matter
+  (define reduction-proc
+    (cdr (assf (λ (pred) (if (pred term) #t #f))
+               (list (cons reduce-beta-able? reduce-beta)
+                     (cons reduce-li1-able?  reduce-li1)
+                     (cons reduce-li2-able?  reduce-li2)
+                     (cons (const #t)        '())))))
+  (if (null? reduction-proc)
+      (error (format "term ~a is not reducible" (show-expr term)))
+      (reduction-proc term env)))
+
+
 
 (define (deduce-type term env)
   (undefined)
