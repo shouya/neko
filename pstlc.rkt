@@ -193,8 +193,15 @@
             (report-type-incompatible t2 dom-type)
             cod-type))))
 
+;; predicate for get <: expect
 (define (type-compatible? get expect)
-  (undefined))
+  (match expect
+    [(? unit-type?) #t]
+    [(cons '-> (cons exp-dom exp-cod))
+     (if (not (func-type? get))
+         #f
+         (and (type-compatible? (func-type-dom get) exp-dom)
+              (type-compatible? exp-cod (func-type-codom get))))]))
 
 (define (print-type env term)
   (define compiled-term (compile-term term))
