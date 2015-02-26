@@ -49,7 +49,6 @@
 
 
 
-
 ;;; Term ::= TermVar
 ;;;        | λ TermVar : Type . Term
 ;;;        | Term Term
@@ -96,8 +95,12 @@
     [(? application?) (appl (appl-func term)
                             (appl-cant term))]))
 
-(define (reduce-beta lamb term env)
+(define (reduce-beta appl env)
+  (assert (application? appl))
+  (define lamb (appl-func appl))
+  (define term (appl-cant appl))
   (assert (lambda? lamb))
+
   (define (subst term var sub)
     (define (for-var name)
       (if (equal? name var)
@@ -133,10 +136,10 @@
              (reduce-step cant env)))
 (define (reduce-li1-able? term env)
   (if (not (application? term)) #f
-      (reducible? (appl-func term))))
+      (reducible? (appl-func term) env)))
 (define (reduce-li2-able? term env)
   (if (not (application? term)) #f
-      (reducible? (appl-cant term))))
+      (reducible? (appl-cant term) env)))
 
 (define (reduce-li-alt func cant env)
   (let* ([reduced (reduce-li1 func cant env)]
@@ -163,7 +166,7 @@
 (define (reduce-step term env)
   ;; notice: the order of reduction does not matter
   (define reduction-proc
-    (cdr (assf (λ (pred) (if (pred term) #t #f))
+    (cdr (assf (λ (pred) (if (pred term env) #t #f))
                (list (cons reduce-beta-able? reduce-beta)
                      (cons reduce-li1-able?  reduce-li1)
                      (cons reduce-li2-able?  reduce-li2)
@@ -205,13 +208,7 @@
 
 ;; predicate for get <: expect
 (define (type-compatible? get expect)
-  (match expect
-    [(? unit-type?) #t]
-    [(cons '-> (cons exp-dom exp-cod))
-     (if (not (func-type? get))
-         #f
-         (and (type-compatible? (func-type-dom get) exp-dom)
-              (type-compatible? exp-cod (func-type-codom get))))]))
+  (equal? get expect))
 
 (define (print-type env term)
   (define compiled-term (compile-term term))

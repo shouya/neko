@@ -30,8 +30,8 @@
 (define func-type?   (predicate '->))
 (define unit-type?   (predicate '*))
 
-(define (func-type-dom   type) (accessor func-type? cadr))
-(define (func-type-codom type) (accessor func-type? cddr))
+(define func-type-dom   (accessor func-type? cadr))
+(define func-type-codom (accessor func-type? cddr))
 
 (define (make-unit-type) (cons '* '()))
 (define (make-func-type t1 t2) (cons '-> (cons t1 t2)))
