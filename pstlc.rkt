@@ -4,7 +4,12 @@
 (require "utils.rkt")
 (require "common.rkt")
 
-(provide do-command
+(provide compile-type
+         compile-term
+         normal-form?
+         reduce-step
+         reduce-full
+         do-command
          init-env)
 
 
@@ -219,12 +224,4 @@
   env)
 
 
-(define (do-command line env)
-  (match line
-    [(? common-commands?)     (handle-common-command line env)]
-    ;; [(list 'annotate var ':: type ...)
-    ;;  (add-type-assignment var (compile-type type) env)]
-    ;; [(list 'type t orig-t) (add-type-alias env t orig-t)]
-    ;; [(list 'bind tbs ...)  (foldr add-type-binding env tbs)]
-    [(list 'show-type term)   (deduce-type (compile-term term) env)]
-    ))
+(define (do-command line env) #f)

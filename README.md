@@ -57,6 +57,7 @@ syntatic sugar to `( ... ((t1 t2) t3) ... ) tn`.
 * `(unanno var)`: delete an annotated identifier
 * `(reduce-step term)`: reduce a term for one step, with current environment.
 * `(reduce-full term)`: reduce a term to normal form, it's not garenteeded to terminate for systems with fix-point operator.
+* `(normal? term)`: print if a term is in normal form.
 * `(type term)`: show the deduced type of a term.
 * `(define var term)`: defining an identifier with some value.
 * `(undef var)`: delete an defined identifier.
@@ -81,12 +82,14 @@ system.
 (compile-term term)
 
 ;; convert compiled entities to readable strings
+;; these two functions are implemented in `common.rkt`.
 (show-type type)
 (show-expr term)
 
 ;; reduction functions
 (reduce-step term env)
 (reduce-full term env)
+(normal-form? term env)
 
 ;; types deduction
 (deduce-type term env)

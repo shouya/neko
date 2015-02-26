@@ -49,15 +49,3 @@
   (if type-system-decl
       (cadr type-system-decl)
       (get-config 'default-type-system)))
-
-(struct neko-env
-  (type-bindings
-   type-aliases
-   const-types))
-
-(define (deduce-xstlc-type env expr)
-  (+ 1 1)
-  )
-
-(define (do-xstlc-command cmd)
-  )

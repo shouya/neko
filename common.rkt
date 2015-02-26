@@ -38,6 +38,25 @@
 
 
 
+(define (dynamically-bind-system system)
+  (define (ns-name type)
+    (string->symbol (string-append (symbol->string system)
+                                   ":"
+                                   (symbol->string type))))
+  (define (def-ns type)
+    `(define type ,(ns-name type)))
+  (display "asdfasdf"
+           (list 'begin
+              (def-ns 'compile-type)
+              (def-ns 'compile-term)
+              (def-ns 'normal-form?)
+              (def-ns 'reduce-step)
+              (def-ns 'reduce-full)
+              (def-ns 'do-command)
+              (def-ns 'init-env))))
+
+
+
 (define (show-type type)
   (define (show-func-type t1 t2)
     (let* ([st1  (show-type t1)]
