@@ -25,7 +25,6 @@
   (define type-system (get-type-system program))
 
 
-
   (define compile-type
     (match type-system
       ['pstlc compile-pstlc-type]

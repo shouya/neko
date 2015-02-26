@@ -38,30 +38,53 @@ Term ::= TermVar
 ```
 
 **Note:** lambda terms supports multiple variable lambda as a syntatic
-sugar, which means, `λ (v1 v2 ... vn :: T) t` will be expanded to
-`λ (v1 :: T) (λ (v2 :: T) ... (λ (vn :: T) t))`.
+sugar, which means, `λ (v1 v2 ... vn :: T) t` will be expanded into
+`λ (v1 :: T) (λ (v2 :: T) ... (λ (vn :: T) t) ...)`.
 
-Functional application curries in neko. `t1 t2 ... tn` is treated as a
-syntatic sugar to `((t1 t2) ... ) tn`.
+Functional application curries in neko. `t1 t2 t3 ... tn` is treated as a
+syntatic sugar to `( ... ((t1 t2) t3) ... ) tn`.
 
 
-## essential functions
+### commands
+
+* `(system <type-system>)`: specify the type system. This command must be the first line of a program. Valid type systems is one of `'(pstlc xstlc system-f system-f-omega)`.
+* `(annotate var type)`: annotate an identifier with given type.
+* `(unanno var)`: delete an annotated identifier
+* `(reduce-step term)`: reduce a term for one step, with current environment.
+* `(reduce-full term)`: reduce a term to normal form, it's not garenteeded to terminate for systems with fix-point operator.
+* `(type term)`: show the deduced type of a term.
+* `(define var term)`: defining an identifier with some value.
+* `(undef var)`: delete an defined identifier.
+
+### program structure
+
+neko program contains a list of commands. those commands will be
+executed orderly. commands are independent each other and the
+environment will carry forward.
+
+
+## essential functions for a system
 
 These functions are available for all systems, but notice they may
-behave differently.
+behave differently. You won't need these information unless you want to
+look into the implementation or you're going to extend neko with a new
+system.
 
 ```racket
 ;; compiles neko syntax code
-(compile-type type ...)
+(compile-type type)
 (compile-term term)
 
-;; convert compiled entities to readable string
+;; convert compiled entities to readable strings
 (show-type type)
 (show-expr term)
 
 ;; reduction functions
 (reduce-step term env)
 (reduce-full term env)
+
+;; types deduction
+(deduce-type term env)
 
 ;; provide an pre-initialized environment for reduction
 (init-env)
