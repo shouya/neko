@@ -15,15 +15,20 @@ in a quoted racket list.
 ### types
 
 ```
-Type ::= *
-       | Type -> Type
-       | ( Type )
+Type ::= '*
+       | Type '-> Type ('-> Type)*
+       | '( Type ')
 ```
 
-**Note:** the unit type `(*)` is rigid. That means it's not for
+**Note:** function type is right associative, `t1 -> t2 -> t3` is
+equivalent to `t1 -> (t2 -> t3)`.
+
+The unit type `(*)` is rigid. That means it's not for
 polymorphism. For example: `(a :: * -> *)` does not accept argument
 with type `* -> *`. Polymorphism is supported in System F and System F-ω
 via type variables.
+
+
 
 ### terms
 
@@ -32,9 +37,9 @@ Type    ::= <see above definition>
 TermVar ::= <any racket symbol>
 
 Term ::= TermVar
-       | λ (TermVar ... :: Type) Term     -- lambda abstraction
-       | Term Term ...                    -- functional application
-       | ( Term )
+       | 'λ '( TermVar ... ':: Type ') Term     -- lambda abstraction
+       | Term Term ...                          -- functional application
+       | '( Term ')
 ```
 
 **Note:** lambda terms supports multiple variable lambda as a syntatic
