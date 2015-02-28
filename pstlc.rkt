@@ -9,6 +9,7 @@
          normal-form?
          reduce-step
          reduce-full
+         deduce-type
          do-command
          init-env)
 

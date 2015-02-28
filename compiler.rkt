@@ -1,10 +1,13 @@
 #lang racket
 
 (require racket/match)
-(require racket/syntax)
+(require racket/syntax
+         (for-syntax racket/syntax))
+(require (for-syntax racket/trace))
 (require "config.rkt")
 (require "utils.rkt")
 (require "common.rkt")
+(require "env.rkt")
 
 (require (prefix-in pstlc: "pstlc.rkt")
          (prefix-in xstlc: "xstlc.rkt"))
@@ -15,104 +18,101 @@
   (neko-env ()))
 |#
 
+(define-namespace-anchor anc)
+(define ns (namespace-anchor->namespace anc))
 
 (define (get-type-system program)
-  (define type-system-decl (assq 'type-system program))
+  (define type-system-decl (assq 'system program))
   (if type-system-decl
       (cadr type-system-decl)
       (get-config 'default-type-system)))
 
-
-
-(define (ns-func name sys)
-  (eval (format-symbol "~a-~a" name sys)))
-
-(define-for-syntax imported-functions
-  '(compile-type
-    compile-term
-    normal-form?
-    reduce-step
-    reduce-full
-    do-command
-    init-env))
-
-(define-syntax (redir-ns-names stx)
-  (syntax-case stx  ()
-    [(_ ns)
-     () (begin (define n1 (ns-func #'n1 #'type-system))
-               (redir-ns-names ns ...))]
-    ))
-
 (define (run-neko program)
   (define type-system (get-type-system program))
 
-  (redir-ns-names imported-functions)
+  (define (ns-func name)
+    (eval (format-symbol "~a:~a" type-system name) ns))
+
+  (define-syntax (define-ns-func stx)
+    (syntax-case stx ()
+      [(_ name)
+       #'(define name (ns-func (quote name)))]))
+
+  (define-ns-func compile-type)
+  (define-ns-func compile-term)
+  (define-ns-func normal-form?)
+  (define-ns-func reduce-step)
+  (define-ns-func reduce-full)
+  (define-ns-func deduce-type)
+  (define-ns-func do-command)
+  (define-ns-func init-env)
+
+  ;; (for/list [func (in-list imported-functions)]
+  ;;   )
 
 
-   (define (compiler-do-command line env)
-     (define-syntax-rule (harmless stmt ...)
-       (begin stmt ... env))
+  (define (compiler-do-command line env)
+    (define-syntax-rule (harmless stmt ...)
+      (begin stmt ... env))
 
-     (define (cmd-reduce reduce-proc term)
-       (let* ([cterm   (compile-term term)]
-              [reduced (reduce-proc cterm env)]
-              [str     (show-expr reduced)])
-         (harmless (printf "~a\n" str))))
+    (define (cmd-reduce reduce-proc term)
+      (let* ([cterm   (compile-term term)]
+             [reduced (reduce-proc cterm env)]
+             [str     (show-expr reduced)])
+        (harmless (printf "~a\n" str))))
 
-     (define (cmd-normal? term)
-       (let* ([cterm (compile-term term)]
-              [norm? (normal-form? cterm)]
-              [sterm (show-expr cterm)]
-              [pred  (string-append (if norm? "is" "isn't")
-                                    "in normal form.")])
-         (harmless (printf "~a ~a") sterm pred)))
+    (define (cmd-normal? term)
+      (let* ([cterm (compile-term term)]
+             [norm? (normal-form? cterm)]
+             [sterm (show-expr cterm)]
+             [pred  (string-append (if norm? "is" "isn't")
+                                   "in normal form.")])
+        (harmless (printf "~a ~a") sterm pred)))
 
-     (define (cmd-annotate var type)
-       (let* ([ctype (compiled-type)])
-         (add-annotation env var ctype)))
-     (define (cmd-unanno var) (remove-annotation env var))
+    (define (cmd-annotate var type)
+      (let* ([ctype (compile-type type)])
+        (add-annotation env var ctype)))
+    (define (cmd-unanno var) (remove-annotation env var))
 
-     (define (cmd-deduce-type term)
-       (let* ([cterm (compiled-term term)]
-              [type  (deduce-type cterm)]
-              [sterm (show-expr cterm)]
-              [stype (show-type type)])
-         (harmless (printf "~a :: ~a" sterm stype))))
+    (define (cmd-deduce-type term)
+      (let* ([cterm (compile-term term)]
+             [type  (deduce-type cterm env)]
+             [sterm (show-expr cterm)]
+             [stype (show-type type)])
+        (harmless (printf "~a :: ~a" sterm stype))))
 
-     (define (cmd-define var term)
-       (let* ([cterm (compile-term term)]
-              [ctype (deduce-type cterm)]
-              [env1  (add-annotation env var ctype)]
-              [env2  (add-binding env1 var cterm)])
-         env2))
-     (define (cmd-undef var)
-       (let* ([env1 (remove-binding env var)]
-              [env2 (remove-annotation env1 var)])
-         env2))
+    (define (cmd-define var term)
+      (let* ([cterm (compile-term term)]
+             [ctype (deduce-type cterm env)]
+             [env1  (add-annotation env var ctype)]
+             [env2  (add-binding env1 var cterm)])
+        env2))
+    (define (cmd-undef var)
+      (let* ([env1 (remove-binding env var)]
+             [env2 (remove-annotation env1 var)])
+        env2))
 
-     ;; * `(system <type-system>)`
-     ;; * `(annotate var type)`
-     ;; * `(unanno var)`
-     ;; * `(reduce-step term)`
-     ;; * `(reduce-full term)`
-     ;; * `(normal? term)`
-     ;; * `(type term)`
-     ;; * `(define var term)`
-     ;; * `(undef var)`
+    ;; * `(system <type-system>)`
+    ;; * `(annotate var type)`
+    ;; * `(unanno var)`
+    ;; * `(reduce-step term)`
+    ;; * `(reduce-full term)`
+    ;; * `(normal? term)`
+    ;; * `(type term)`
+    ;; * `(define var term)`
+    ;; * `(undef var)`
 
-     (match line
-       [(list 'system _)          env]
-       [(list 'annotate var type) (cmd-annotate var type)]
-       [(list 'unanno var)        (cmd-unanno var)]
-       [(list 'reduce-step term)  (cmd-reduce reduce-step term)]
-       [(list 'reduce-full term)  (cmd-reduce reduce-full term)]
-       [(list 'normal? term)      (cmd-normal? term)]
-       [(list 'type term)         (cmd-deduce-type term)]
-       [(list 'define var term)   (cmd-define var term)]
-       [(list 'undef var)         (cmd-undef var)]
-       [_                         #f]
-       ))) ; end of compiler-do-command
-
+    (match line
+      [(list 'system _)          env]
+      [(list 'annotate var type) (cmd-annotate var type)]
+      [(list 'unanno var)        (cmd-unanno var)]
+      [(list 'reduce-step term)  (cmd-reduce reduce-step term)]
+      [(list 'reduce-full term)  (cmd-reduce reduce-full term)]
+      [(list 'normal? term)      (cmd-normal? term)]
+      [(list 'type term)         (cmd-deduce-type term)]
+      [(list 'define var term)   (cmd-define var term)]
+      [(list 'undef var)         (cmd-undef var)]
+      [_                         #f]))
 
   (define (do-cmd line env)
     (let ([rst1 (do-command line env)])
@@ -121,18 +121,30 @@
             (if (not (false? rst2)) rst2
                 (error "command (~a) not supported" line))))))
 
+
   (let do-commands ([lines program]
                     [env (init-env)])
     (let* ([line    (car lines)]
            [rest    (cdr lines)]
            [new-env (do-cmd line env)])
-      (do-commands rest new-env)))
+      (if (null? rest) env
+          (do-commands rest new-env))))
+  ) ; end of compiler-do-command
 
-(display (show-type (compile-pstlc-type '(A -> B))))
-(newline)
 
-; (display (show-expr (compile-pstlc-expr '(λ A C :: B : E F))))
-(display (show-expr (compile-pstlc-expr
-                     '(λ x :: T : (λ y :: T : X) E (F G) H))))
-; (show-expr (compile-pstlc-expr '(E F G H)))
+(define-syntax-rule (run program ...)
+  (void (run-neko (quote (program ...)))))
+
+
+
+;; (display (show-expr (compile-pstlc-expr '(λ A C :: B : E F))))
+;; (display (show-expr (compile-pstlc-expr
+;;                      '(λ x :: T : (λ y :: T : X) E (F G) H))))
+;; (show-expr (compile-pstlc-expr '(E F G H)))
+
+(run
+ (system pstlc)
+ (type (λ (a b :: *) a))
+ (reduce-step ((λ a b :: b) a))
+ )
 (newline)

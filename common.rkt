@@ -38,7 +38,6 @@
 
 
 
-
 (define (show-type type)
   (define (show-func-type t1 t2)
     (let* ([st1  (show-type t1)]

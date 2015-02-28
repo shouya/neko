@@ -4,5 +4,5 @@
 
 (define (get-config key)
   (case key
-    [('default-type-system) 'pstlc]
+    ['default-type-system 'pstlc]
     ))
