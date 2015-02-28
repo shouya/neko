@@ -1,12 +1,12 @@
 #lang racket
 
 (require racket/match)
+(require (for-syntax racket/syntax
+                     syntax/parse))
 
 (provide (all-defined-out))
 
 (struct basic-env (bindings annotations))
-(struct pstlc-env basic-env ())
-(struct xstlc-env basic-env ())
 
 (define-syntax-rule (update-env e field-id fn)
   (match e
@@ -14,30 +14,34 @@
      (struct-copy basic-env e [field-id (fn v)])]
     [_ (error "Error 418: I'm a Teapot!")]))
 
-(define (add-binding env var term)
-  (update-env env bindings
-              (λ (xs) (cons (cons var term) xs))))
-(define (remove-binding env var)
-  (update-env env bindings
-              (λ (xs) (remove var xs
-                              (λ (a b) (equal? a (car b)))))))
-(define (add-annotation env var type)
-  (update-env env annotations
-              (λ (xs) (cons (cons var type) xs))))
-(define-syntax-rule (remove-annotation env var)
-  (update-env env annotations
-              (λ (xs) (remove var xs
-                              (λ (a b) (equal? a (car b)))))))
 
-(define (find-annotation env name)
-  (let recur ([e env])
-    (cond
-     [(null? e)              #f]
-     [(equal? (caar e) name) (cdar e)]
-     [#t                     (recur (cdr e))])))
-(define (find-binding env name)
-  (let recur ([e env])
-    (cond
-     [(null? e)              #f]
-     [(equal? (caar e) name) (cdar e)]
-     [#t                     (recur (cdr e))])))
+(define-syntax (define-env-lookup-stack stx)
+  (syntax-parse stx
+    [(_ prop:id)
+     (define/with-syntax add-id    (format-id stx "add-~a"    #'prop))
+     (define/with-syntax remove-id (format-id stx "remove-~a" #'prop))
+     (define/with-syntax find-id   (format-id stx "find-~a"   #'prop))
+     (define/with-syntax field-id  (format-id stx "~as"       #'prop))
+     (define/with-syntax field-acc
+       (format-id stx "basic-env-~as"                         #'prop))
+
+     #'(begin
+         (define (add-id env var val)
+           (let* ([rec    (cons var val)]
+                  [update (curry cons rec)])
+             (update-env env field-id update)))
+         (define (remove-id env var)
+           (let* ([mtch (λ (name rec) (equal? name (car rec)))]
+                  [remv (λ (xs) (remove var xs mtch))])
+             (update-env env bindings remv)))
+         (define (find-id env name)
+           (define records (field-acc env))
+           (let recur ([e records])
+             (cond
+              [(null? e)              #f]
+              [(equal? (caar e) name) (car e)]
+              [#t                     (recur (cdr e))]))))
+     ]))
+
+(define-env-lookup-stack binding)
+(define-env-lookup-stack annotation)
