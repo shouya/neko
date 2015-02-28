@@ -3,6 +3,7 @@
 (require racket/match)
 (require "utils.rkt")
 (require "common.rkt")
+(require "env.rkt")
 
 (provide compile-type
          compile-term
@@ -23,23 +24,12 @@
    (print-type ((λ y :: * -> * : y)) (λ x :: * : x))
    ))
 
-(struct pstlc-env
-  (type-assignments))                   ; unused
 
 (define (init-env)
-  (pstlc-env '() ;; type assignments (unused)
-             ))
+  (basic-env
+   '()                                  ; annos
+   '()))                                ; defs
 
-(define-syntax update-env
-  (syntax-rules ()
-    [(_ env fld accessor f)
-     (let* ([old-fld (accessor env)]
-            [new-fld (f old-fld)])
-       (struct-copy pstlc-env env [fld new-fld]))]))
-
-(define (add-type-assignment var type env)
-  (update-env env type-assignments pstlc-env-type-assignments
-              ((curry cons) '(var . type))))
 
 ;;; Type ::= *
 ;;;        | Type -> Type
@@ -189,11 +179,23 @@
 (define (empty-type-bnd) '())
 (define (deduce-type term env [bnd (empty-type-bnd)])
   (define (var-case name)
-    (let ([var-bnd (assoc name bnd)]
-          [var-str (symbol->string name)])
-      (if (false? var-bnd)
-          (error (format "variable ~a not bound" var-str))
-          (cdr var-bnd))))
+    (define (find-in-bnd)
+      (let ([var-bnd (assoc name bnd)])
+        (and var-bnd (cdr var-bnd))))
+    (define (find-in-env)
+      (let ([var-bnd (find-annotation env name)])
+        (and var-bnd (cdr var-bnd))))
+    (define (auto-assign-unit-type)
+      (make-unit-type))
+    (define (report-not-found name)
+      (let ([var-str (symbol->string name)])
+        (error (format "variable ~a not found" var-str))))
+    (ormap (λ (p) (apply p '()))
+           (list find-in-bnd
+                 find-in-env
+                 auto-assign-unit-type
+                 report-not-found))
+    )
   (define (lamb-case var type expr)
     (define new-bnd (cons (cons var type) bnd))
     (make-func-type type

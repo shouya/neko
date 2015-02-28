@@ -12,6 +12,7 @@
 (require (prefix-in pstlc: "pstlc.rkt")
          (prefix-in xstlc: "xstlc.rkt"))
 
+(provide run)
 
 #|
 (define (neko-env-update-type-binding env f)
@@ -67,7 +68,7 @@
              [sterm (show-expr cterm)]
              [pred  (string-append (if norm? "is" "isn't")
                                    "in normal form.")])
-        (harmless (printf "~a ~a") sterm pred)))
+        (harmless (printf "~a ~a\n") sterm pred)))
 
     (define (cmd-annotate var type)
       (let* ([ctype (compile-type type)])
@@ -79,7 +80,7 @@
              [type  (deduce-type cterm env)]
              [sterm (show-expr cterm)]
              [stype (show-type type)])
-        (harmless (printf "~a :: ~a" sterm stype))))
+        (harmless (printf "(~a) :: ~a\n" sterm stype))))
 
     (define (cmd-define var term)
       (let* ([cterm (compile-term term)]
@@ -134,17 +135,3 @@
 
 (define-syntax-rule (run program ...)
   (void (run-neko (quote (program ...)))))
-
-
-
-;; (display (show-expr (compile-pstlc-expr '(λ A C :: B : E F))))
-;; (display (show-expr (compile-pstlc-expr
-;;                      '(λ x :: T : (λ y :: T : X) E (F G) H))))
-;; (show-expr (compile-pstlc-expr '(E F G H)))
-
-(run
- (system pstlc)
- (type (λ (a b :: *) a))
- (reduce-step ((λ a b :: b) a))
- )
-(newline)
