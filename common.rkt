@@ -14,6 +14,7 @@
 (define term-var?    (predicate 'var))
 (define lambda?      (predicate 'λ))
 (define application? (predicate 'appl))
+(define cvalue?      (predicate 'V))
 
 (define var-name    (accessor term-var?    cdr))
 (define lambda-var  (accessor lambda?      cadr))
@@ -27,16 +28,22 @@
 (define (make-appl func cant)       (list 'appl func cant))
 
 ;; -- types --
-(define func-type?   (predicate '->))
-(define unit-type?   (predicate '*))
+(define func-type?  (predicate '->))
+(define const-type? (predicate 'C))
 
 (define func-type-dom   (accessor func-type? cadr))
 (define func-type-codom (accessor func-type? cddr))
+(define const-type-name (accessor const-type? cdr))
 
-(define (make-unit-type) (cons '* '()))
-(define (make-func-type t1 t2) (cons '-> (cons t1 t2)))
+(define cvalue-type  (accessor cvalue? cadr))
+(define cvalue-value (accessor cvalue? cddr))
 
+(define (make-unit-type)          (make-const-type '*))
+(define (make-func-type t1 t2)    (cons '-> (cons t1 t2)))
+(define (make-const-type tname)   (cons 'C tname))
 
+(define (make-cvalue const-type-name value)
+  (cons 'V (cons const-type-name value)))
 
 (define (show-type type)
   (define (show-func-type t1 t2)
@@ -46,11 +53,11 @@
                      (string-append "(" st1 ")")
                      st1)])
       (string-append sst1 " -> " st2)))
+  (define show-const-type symbol->string)
 
   (match type
-    [(cons 'base-type t)        (symbol->string t)]
     [(cons '-> (cons t1 t2))    (show-func-type t1 t2)]
-    [(cons '* _)                "*"]
+    [(cons 'C c)                (show-const-type c)]
     [_ (error (format "unrecognized compiled type ~a" type) )]
     ))
 
@@ -92,12 +99,19 @@
                 (cadr args)
                 (caddr args)))
         (list (list var) type expr)))
+  (define (show-cvalue t v)
+    (match t
+      [(or 'bool 'int) (format "~a" v)]
+      [_               (error (format "unrecognized const type ~a" t))]
+      ))
 
   (match expr
     [(list 'λ var type expr)
-     (apply show-lambda (acc-lambda-vars var type expr))]
-    [(list 'appl t1 t2) (show-appl t1 t2)]
-    [(cons 'var v)      (symbol->string v)])
+     (apply show-lambda   (acc-lambda-vars var type expr))]
+    [(list 'appl t1 t2)   (show-appl t1 t2)]
+    [(cons 'var v)        (symbol->string v)]
+    [(cons 'V (cons t v)) (show-cvalue t v)]
+    )
   )
 
 
