@@ -41,8 +41,8 @@
     [(list t1 '-> t2 ...)
      (make-func-type (compile-type t1)
                      (compile-type t2))]
-    [(list t) (compile-type t)]))
-
+    [(list t) (compile-type t)]
+    ))
 
 
 ;;; Term ::= TermVar
@@ -69,17 +69,19 @@
     ))
 
 
-(define (normal-form? term)
+(define (normal-form? term env)
   (match term
-    [(? value?) #t]
+    [(? (value? term env)) #t]
     [(list 'appl t1 t2)
      (if (lambda? t1) #f (normal-form? t2))]
     ))
 
-(define (value? term)
+(define (value? term env)
   (match term
     [(? lambda?)   #t]
-    [(? term-var?) #t]
+    [(? term-var?) (if (binding-defined? env (var-name term))
+                       (value? (find-binding env term) env)
+                       #f)]
     [_             #f]))
 
 (define (term-case term var lamb appl)
@@ -123,11 +125,20 @@
       (let ([func (appl-func term)])
         (if (lambda? func) #t   #f))))
 
-(define (reduce-li1 func cant env)
+(define (reduce-li1 term env)
+  (define-values (func cant)
+    (values (appl-func term)
+            (appl-cant term)))
   (make-appl (reduce-step func env) cant))
-(define (reduce-li2 func cant env)
+(define (reduce-li2 term env)
+  (define-values (func cant)
+    (values (appl-func term)
+            (appl-cant term)))
   (make-appl func (reduce-step cant env)))
-(define (reduce-li func cant env)
+(define (reduce-li term env)
+  (define-values (func cant)
+    (values (appl-func term)
+            (appl-cant term)))
   (make-appl (reduce-step func env)
              (reduce-step cant env)))
 (define (reduce-li1-able? term env)
@@ -143,20 +154,30 @@
          [cant2   (appl-cant reduced)])
     (reduce-li2 func2 cant2 env)))
 
+;; transivity
 (define (reduce-trs term env) (reduce-step (reduce-step term env) env))
 (define (reduce-trs-able? term env)
   (if (not (reducible? term env)) #f
       (let ([reduced (reduce-step term env)])
         (reducible? term env))))
 
+;; reflexivity
 (define (reduce-ref term env) term)
 (define (reduce-ref-able? term env) #t)
+
+(define (reduce-var term env)
+  (define name (var-name term))
+  (find-binding env name))
+(define (reduce-var-able? term env)
+  (and (term-var? term)
+       (binding-defined? env (var-name term))))
 
 (define (reducible? term env)
   (ormap (λ (f) (f term env))
          (list reduce-beta-able?
                reduce-li1-able?
-               reduce-li2-able?)))
+               reduce-li2-able?
+               reduce-var-able?)))
 
 
 (define (reduce-step term env)
@@ -166,6 +187,7 @@
                (list (cons reduce-beta-able? reduce-beta)
                      (cons reduce-li1-able?  reduce-li1)
                      (cons reduce-li2-able?  reduce-li2)
+                     (cons reduce-var-able?  reduce-var)
                      (cons (const #t)        '())))))
   (if (null? reduction-proc)
       (error (format "term ~a is not reducible" (show-expr term)))
@@ -183,8 +205,7 @@
       (let ([var-bnd (assoc name bnd)])
         (and var-bnd (cdr var-bnd))))
     (define (find-in-env)
-      (let ([var-bnd (find-annotation env name)])
-        (and var-bnd (cdr var-bnd))))
+      (find-annotation env name))
     (define (auto-assign-unit-type)
       (make-unit-type))
     (define (report-not-found name)

@@ -71,7 +71,7 @@
         (harmless (printf "~a ~a\n") sterm pred)))
 
     (define (cmd-annotate var type)
-      (let* ([ctype (compile-type type)])
+      (let ([ctype (compile-type type)])
         (add-annotation env var ctype)))
     (define (cmd-unanno var) (remove-annotation env var))
 

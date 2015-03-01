@@ -22,8 +22,10 @@
      (define/with-syntax remove-id (format-id stx "remove-~a" #'prop))
      (define/with-syntax find-id   (format-id stx "find-~a"   #'prop))
      (define/with-syntax field-id  (format-id stx "~as"       #'prop))
-     (define/with-syntax field-acc
+     (define/with-syntax field-accessor
        (format-id stx "basic-env-~as"                         #'prop))
+     (define/with-syntax id-defined?
+       (format-id stx "~a-defined?"                           #'prop))
 
      #'(begin
          (define (add-id env var val)
@@ -33,14 +35,18 @@
          (define (remove-id env var)
            (let* ([mtch (λ (name rec) (equal? name (car rec)))]
                   [remv (λ (xs) (remove var xs mtch))])
-             (update-env env bindings remv)))
-         (define (find-id env name)
-           (define records (field-acc env))
+             (update-env env field-id remv)))
+         (define (assoc-id env name)
+           (define records (field-accessor env))
            (let recur ([e records])
              (cond
               [(null? e)              #f]
               [(equal? (caar e) name) (car e)]
-              [#t                     (recur (cdr e))]))))
+              [#t                     (recur (cdr e))])))
+         (define (find-id env name)
+           (let ([pair (assoc-id env name)])
+             (if pair (cdr pair) #f)))
+         (define id-defined? assoc-id))
      ]))
 
 (define-env-lookup-stack binding)
