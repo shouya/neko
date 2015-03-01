@@ -133,5 +133,8 @@
   ) ; end of compiler-do-command
 
 
-(define-syntax-rule (run program ...)
-  (void (run-neko (quote (program ...)))))
+(define-syntax-rule (run comment program ...)
+  (void (begin (printf "--~a--\n" comment)
+               (run-neko (quote (program ...))))))
+(define-syntax-rule (norun xx ...)
+  (void '()))

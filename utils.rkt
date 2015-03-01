@@ -25,10 +25,6 @@
 (define (assert expr)
   (if expr #t (error "assertion failed!")))
 
-;; comment code without breaking syntax highlight
-(define-syntax-rule (comment x ...)
-  (void '()))
-
 
 (define (nature-number? n)
   (and (integer? n)
