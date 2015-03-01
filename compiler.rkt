@@ -9,8 +9,7 @@
 (require "common.rkt")
 (require "env.rkt")
 
-(require (prefix-in pstlc: "pstlc.rkt")
-         (prefix-in xstlc: "xstlc.rkt"))
+(require (prefix-in stlc: "stlc.rkt"))
 
 (provide run)
 

@@ -15,29 +15,21 @@
          init-env)
 
 
-(void
- ;; sample pstlc program
- ;; (λ y :: * -> * : y) (λ x :: * : x)
- '(
-   (system pstlc)
-   (annotate x :: int)
-   (print-type ((λ y :: * -> * : y)) (λ x :: * : x))
-   ))
-
-
 (define (init-env)
   (basic-env
    '()                                  ; annos
    '()))                                ; defs
 
 
-;;; Type ::= *
+;;; Type ::= *                ; unit type
 ;;;        | Type -> Type
 ;;;        | ( Type )
 
 (define (compile-type type)
   (match type
     ['*              (make-unit-type)]
+    ['int            (make-const-type 'int)]
+    ['bool           (make-const-type 'bool)]
     [(list t1 '-> t2 ...)
      (make-func-type (compile-type t1)
                      (compile-type t2))]
@@ -55,11 +47,13 @@
     (make-lambda var type expr))
 
   (match term
-    [(? symbol?) (make-var term)]
     [(list 'λ (list vars ... ':: type ...) terms ...)
      (foldr (curryr my-make-lambda (compile-type type))
             (compile-term terms)
             vars)]
+    [(? nature-number?) (make-cvalue 'int term)]
+    [(or 'true 'false)  (make-cvalue 'bool term)]
+    [(? symbol?)        (make-var term)]
     [(list func terms ...)
      (fold-left make-appl
                 (compile-term func)
@@ -84,14 +78,28 @@
                        #f)]
     [_             #f]))
 
-(define (term-case term var lamb appl)
+(define (term-case term
+                   #:var  [var  #f]
+                   #:lamb [lamb #f]
+                   #:appl [appl #f]
+                   #:cval [cval #f])
+  (define (try-appl func . args)
+    (if (false? func)
+        (error (format "case for term (~a) not included"
+                       (show-expr term)))
+        (apply func args)))
   (match term
-    [(? term-var?)    (var (var-name term))]
-    [(? lambda?)      (lamb (lambda-var  term)
-                            (lambda-type term)
-                            (lambda-expr term))]
-    [(? application?) (appl (appl-func term)
-                            (appl-cant term))]))
+    [(? term-var?)    (try-appl var (var-name term))]
+    [(? lambda?)      (try-appl lamb
+                                (lambda-var  term)
+                                (lambda-type term)
+                                (lambda-expr term))]
+    [(? application?) (try-appl appl
+                                (appl-func term)
+                                (appl-cant term))]
+    [(? cvalue?)      (try-appl cval
+                                (cvalue-type term)
+                                (cvalue-value term))]))
 
 (define (reduce-beta appl env)
   (assert (application? appl))
@@ -111,7 +119,12 @@
     (define (for-appl func cant)
       (make-appl (subst func var sub)
                  (subst cant var sub)))
-    (term-case term for-var for-lamb for-appl))
+    (define (for-cval type val) (make-cvalue type val))
+    (term-case term
+               #:var  for-var
+               #:lamb for-lamb
+               #:appl for-appl
+               #:cval for-cval))
   (let* ([lamb-var   (lambda-var  lamb)]
          [arg-type   (lambda-type lamb)]
          [lamb-body  (lambda-expr lamb)]
@@ -224,7 +237,14 @@
   (define (appl-case func cant)
     (build-appl-type (deduce-type func env bnd)
                      (deduce-type cant env bnd)))
-  (term-case term var-case lamb-case appl-case))
+  (define (cval-case type-name val)
+    (make-const-type type-name))
+
+  (term-case term
+             #:var  var-case
+             #:lamb lamb-case
+             #:appl appl-case
+             #:cval cval-case))
 
 (define (build-appl-type t1 t2)
   (if (not (func-type? t1))

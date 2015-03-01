@@ -4,8 +4,8 @@
 (require "utils.rkt")
 
 
-(run "A sample piece of pstlc system code"
-     (system pstlc)
+(run "A sample piece of STLC system code"
+     (system stlc)
      (annotate a (* -> * -> *))
      (type (λ (a b :: *) a))               ; should return * -> * -> *
      (reduce-step ((λ (a b :: * -> * -> *) b) a))
@@ -15,11 +15,7 @@
      (type a)
      (undef a)
      (type a)                              ; should back to * -> * -> *
+     (type true)
      )
 
 (newline)
-
-(run "A sample piece of xstlc system code"
-     (system xstlc)
-     (type true)
-     )
