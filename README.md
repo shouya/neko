@@ -1,7 +1,6 @@
 # neko
-An adorable typed calculus langauges for Pure Simply Typed Lambda
-Caculus (PSTLC), Extended Pure Simply Typed Lambda Calculus (XSTLC),
-System F, and System F-ω!
+An adorable typed calculus langauges for Simply Typed Lambda
+Caculus (STLC), System F, and System F-ω!
 
 ![neko](http://i.imgur.com/n4j7vuIl.png)
 
@@ -52,7 +51,7 @@ syntatic sugar to `( ... ((t1 t2) t3) ... ) tn`.
 
 ### commands
 
-* `(system <type-system>)`: specify the type system. This command must be the first line of a program. Valid type systems is one of `'(pstlc xstlc system-f system-f-omega)`.
+* `(system <type-system>)`: specify the type system. This command must be the first line of a program. Valid type systems is one of `'(stlc system-f system-f-omega)`.
 * `(annotate var type)`: annotate an identifier with given type.
 * `(unanno var)`: delete an annotated identifier
 * `(reduce-step term)`: reduce a term for one step, with current environment.
