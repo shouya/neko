@@ -106,7 +106,7 @@ system.
 ## references
 * [An Introduction to System F - PPS](http://www.pps.univ-paris-diderot.fr/~miquel/slides/got03-1.pdf)
 * [A Short Introduction to Systems F and F-ω](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.137.2063&rep=rep1&type=pdf)
-
+* (Software Foundations) [STLC: Simply Typed Lambda Calclus](http://www.cis.upenn.edu/~bcpierce/sf/current/Stlc.html)
 
 # license
 MIT, see `LICENSE` for details.
