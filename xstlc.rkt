@@ -5,6 +5,8 @@
 (require "common.rkt")
 (require "env.rkt")
 
+(require "pstlc.rkt")
+
 (provide compile-type
          compile-term
          normal-form?
@@ -15,26 +17,24 @@
          init-env)
 
 
-(define (init-env)
-  (basic-env
-   '()                                  ; annos
-   '()))                                ; defs
-
 
 ;;; Type ::= *                ; unit type
 ;;;        | Type -> Type
+;;;        | nat
+;;;        | bool
 ;;;        | ( Type )
 
-(define (compile-type type)
+(define (compile-type-xstlc type)
   (match type
     ['*              (make-unit-type)]
-    ['int            (make-const-type 'int)]
+    ['nat            (make-const-type 'nat)]
     ['bool           (make-const-type 'bool)]
     [(list t1 '-> t2 ...)
      (make-func-type (compile-type t1)
                      (compile-type t2))]
     [(list t) (compile-type t)]
     ))
+(set! compile-type compile-type-xstlc)
 
 
 ;;; Term ::= TermVar
@@ -42,7 +42,7 @@
 ;;;        | Term Term
 ;;;        | ( Term )
 
-(define (compile-term term)
+(define (compile-term-xstlc term)
   (define (my-make-lambda var expr type)
     (make-lambda var type expr))
 
@@ -51,7 +51,7 @@
      (foldr (curryr my-make-lambda (compile-type type))
             (compile-term terms)
             vars)]
-    [(? nature-number?) (make-cvalue 'int term)]
+    [(? nature-number?) (make-cvalue 'nat term)]
     [(or 'true 'false)  (make-cvalue 'bool term)]
     [(? symbol?)        (make-var term)]
     [(list func terms ...)
@@ -61,28 +61,14 @@
     [(list term)
      (compile-term term)]
     ))
+(set! compile-term compile-term-xstlc)
 
 
-(define (normal-form? term env)
-  (match term
-    [(? (value? term env)) #t]
-    [(list 'appl t1 t2)
-     (if (lambda? t1) #f (normal-form? t2))]
-    ))
-
-(define (value? term env)
-  (match term
-    [(? lambda?)   #t]
-    [(? term-var?) (if (binding-defined? env (var-name term))
-                       (value? (find-binding env term) env)
-                       #f)]
-    [_             #f]))
-
-(define (term-case term
-                   #:var  [var  #f]
-                   #:lamb [lamb #f]
-                   #:appl [appl #f]
-                   #:cval [cval #f])
+(define (term-case-xstlc term
+                         #:var  [var  #f]
+                         #:lamb [lamb #f]
+                         #:appl [appl #f]
+                         #:cval [cval #f])
   (define (try-appl func . args)
     (if (false? func)
         (error (format "case for term (~a) not included"
@@ -100,8 +86,9 @@
     [(? cvalue?)      (try-appl cval
                                 (cvalue-type term)
                                 (cvalue-value term))]))
+(set! term-case term-case-xstlc)
 
-(define (reduce-beta appl env)
+(define (reduce-beta-xstlc appl env)
   (assert (application? appl))
   (define lamb (appl-func appl))
   (define term (appl-cant appl))
@@ -133,86 +120,9 @@
         (subst lamb-body lamb-var term)
         (report-type-incompatible term-type arg-type
                                   "type error on beta reduction"))))
-(define (reduce-beta-able? term env)
-  (if (not (application? term)) #f
-      (let ([func (appl-func term)])
-        (if (lambda? func) #t   #f))))
+(set! reduce-beta reduce-beta-xstlc)
 
-(define (reduce-li1 term env)
-  (define-values (func cant)
-    (values (appl-func term)
-            (appl-cant term)))
-  (make-appl (reduce-step func env) cant))
-(define (reduce-li2 term env)
-  (define-values (func cant)
-    (values (appl-func term)
-            (appl-cant term)))
-  (make-appl func (reduce-step cant env)))
-(define (reduce-li term env)
-  (define-values (func cant)
-    (values (appl-func term)
-            (appl-cant term)))
-  (make-appl (reduce-step func env)
-             (reduce-step cant env)))
-(define (reduce-li1-able? term env)
-  (if (not (application? term)) #f
-      (reducible? (appl-func term) env)))
-(define (reduce-li2-able? term env)
-  (if (not (application? term)) #f
-      (reducible? (appl-cant term) env)))
-
-(define (reduce-li-alt func cant env)
-  (let* ([reduced (reduce-li1 func cant env)]
-         [func2   (appl-func reduced)]
-         [cant2   (appl-cant reduced)])
-    (reduce-li2 func2 cant2 env)))
-
-;; transivity
-(define (reduce-trs term env) (reduce-step (reduce-step term env) env))
-(define (reduce-trs-able? term env)
-  (if (not (reducible? term env)) #f
-      (let ([reduced (reduce-step term env)])
-        (reducible? term env))))
-
-;; reflexivity
-(define (reduce-ref term env) term)
-(define (reduce-ref-able? term env) #t)
-
-(define (reduce-var term env)
-  (define name (var-name term))
-  (find-binding env name))
-(define (reduce-var-able? term env)
-  (and (term-var? term)
-       (binding-defined? env (var-name term))))
-
-(define (reducible? term env)
-  (ormap (λ (f) (f term env))
-         (list reduce-beta-able?
-               reduce-li1-able?
-               reduce-li2-able?
-               reduce-var-able?)))
-
-
-(define (reduce-step term env)
-  ;; notice: the order of reduction does not matter
-  (define reduction-proc
-    (cdr (assf (λ (pred) (if (pred term env) #t #f))
-               (list (cons reduce-beta-able? reduce-beta)
-                     (cons reduce-li1-able?  reduce-li1)
-                     (cons reduce-li2-able?  reduce-li2)
-                     (cons reduce-var-able?  reduce-var)
-                     (cons (const #t)        '())))))
-  (if (null? reduction-proc)
-      (error (format "term ~a is not reducible" (show-expr term)))
-      (reduction-proc term env)))
-
-(define (reduce-full term env)   ;; probably undetermined
-  (if (not (reducible? term env)) term
-      (reduce-full (reduce-step term env) env)))
-
-
-(define (empty-type-bnd) '())
-(define (deduce-type term env [bnd (empty-type-bnd)])
+(define (deduce-type-xstlc term env [bnd (empty-type-bnd)])
   (define (var-case name)
     (define (find-in-bnd)
       (let ([var-bnd (assoc name bnd)])
@@ -224,6 +134,7 @@
     (define (report-not-found name)
       (let ([var-str (symbol->string name)])
         (error (format "variable ~a not found" var-str))))
+
     (ormap (λ (p) (apply p '()))
            (list find-in-bnd
                  find-in-env
@@ -246,26 +157,4 @@
              #:appl appl-case
              #:cval cval-case))
 
-(define (build-appl-type t1 t2)
-  (if (not (func-type? t1))
-      (error (format "error: ~a is not a function" t1))
-      (let ([dom-type (func-type-dom   t1)]
-            [cod-type (func-type-codom t1)])
-        (if (not (type-compatible? t2 dom-type))
-            (report-type-incompatible t2 dom-type)
-            cod-type))))
-
-;; predicate for get <: expect
-(define (type-compatible? get expect)
-  (equal? get expect))
-
-(define (print-type env term)
-  (define compiled-term (compile-term term))
-  (define deduced-type  (deduce-type compiled-term env))
-  (printf "~a :: ~a"
-          (show-expr compiled-term)
-          (show-type deduced-type))
-  env)
-
-
-(define (do-command line env) #f)
+(set! deduce-type deduce-type-xstlc)

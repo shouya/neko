@@ -5,7 +5,6 @@
          paren-quote
          undefined
          assert
-         comment
          nature-number?
          )
 
